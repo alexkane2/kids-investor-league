@@ -272,15 +272,15 @@ export default function App() {
             textShadow: "3px 3px 0 #e84545, 6px 6px 0 rgba(0,0,0,0.1)",
             lineHeight: 1.15,
           }}>
-            🐷 The Great Investor League 🐷
+            🏆 The Great Investor League 🏆
           </div>
           <div className="fredoka" style={{ color: "rgba(255,255,255,0.88)", fontSize: "clamp(14px, 2.8vw, 20px)", marginTop: 6, textShadow: "1px 1px 0 rgba(0,0,0,0.12)" }}>
-            Who will be the best investor? 🌟
+            Who will be the champion investor? 🌟
           </div>
 
           {hasData && familyValue > 0 && (
             <div style={{ animation: "slideUp 0.5s ease", marginTop: 18, display: "inline-flex", alignItems: "center", gap: 14, background: "#fff", border: "4px solid #e84545", borderRadius: 60, padding: "10px 28px", boxShadow: "4px 5px 0 #b32d2d" }}>
-              <span className="fredoka" style={{ color: "#e84545", fontSize: 18 }}>💰 Family Total:</span>
+              <span className="fredoka" style={{ color: "#e84545", fontSize: 18 }}>💰 League Total:</span>
               <span className="fredoka" style={{ color: "#333", fontSize: 20 }}>${familyValue.toFixed(2)}</span>
               <span className="nunito" style={{ fontWeight: 900, fontSize: 16, color: familyGain >= 0 ? "#27ae60" : "#e84545" }}>
                 {familyGain >= 0 ? "▲ +" : "▼ "}${Math.abs(familyGain).toFixed(2)}
