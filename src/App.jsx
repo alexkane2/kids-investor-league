@@ -225,7 +225,7 @@ export default function App() {
             textShadow: "3px 3px 0 #e84545, 6px 6px 0 rgba(0,0,0,0.1)",
             lineHeight: 1.15,
           }}>
-            🐷 Kids Money Club! 🐷
+            🐷 The Great Investor League 🐷
           </div>
           <div className="fredoka" style={{ color: "rgba(255,255,255,0.88)", fontSize: "clamp(14px, 2.8vw, 20px)", marginTop: 6, textShadow: "1px 1px 0 rgba(0,0,0,0.12)" }}>
             Who will be the best investor? 🌟
