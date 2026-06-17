@@ -13,7 +13,11 @@ A portfolio tracker for three kids' ETF holdings. Built with React + Vite, uses 
    - Sign up at https://alpaca.markets (paper trading account is free)
    - Get your API Key ID and Secret from the dashboard
    - Copy `.env.local.example` to `.env.local`
-   - Replace the placeholder values with your real keys
+   - Replace the placeholder values with your real keys (`ALPACA_KEY` and `ALPACA_SECRET`)
+   - **Never commit real keys.** `.env.local` is gitignored; `.env.local.example` should only ever hold placeholders.
+   - The keys are used only by the serverless function in `api/prices.js` (server-side) and are never sent to the browser. Do not add a `VITE_` prefix — `VITE_`-prefixed vars get bundled into the public client JS.
+
+   For production on Vercel, set `ALPACA_KEY` and `ALPACA_SECRET` in the Vercel dashboard under **Settings → Environment Variables** instead of using `.env.local`.
 
 3. Add the kid photos to `public/`:
    - `hudson.png`
