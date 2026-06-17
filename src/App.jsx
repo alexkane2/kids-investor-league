@@ -187,28 +187,37 @@ export default function App() {
     })();
   }, []);
 
-  const refresh = useCallback(async (resetBase = false) => {
+  const refresh = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
-      const newPrices = await fetchLivePrices();
-      setPrices(newPrices);
-      localStorage.setItem("kil-last-2026-06-17", JSON.stringify(newPrices));
+      const data = await fetchLivePrices();
+      const current = data.current || {};
+      const base = data.base || {};
+      setPrices(current);
+      localStorage.setItem("kil-last-2026-06-17", JSON.stringify(current));
       const ts = new Date().toLocaleString("en-US", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" });
       setLastUpdated(ts);
       localStorage.setItem("kil-ts-2026-06-17", ts);
-      const hasBase = Object.keys(basePrices).length > 0;
-      if (resetBase || !hasBase) {
-        setBasePrices(newPrices);
-        localStorage.setItem("kil-base-2026-06-17", JSON.stringify(newPrices));
+      // Starting line is always today's market open, provided by the server.
+      if (Object.keys(base).length > 0) {
+        setBasePrices(base);
+        localStorage.setItem("kil-base-2026-06-17", JSON.stringify(base));
       }
     } catch (e) {
       setError("Oops! Couldn't get prices right now.");
     }
     setLoading(false);
-  }, [basePrices]);
+  }, []);
 
-  useEffect(() => { if (ready) refresh(); }, [ready]);
+  useEffect(() => { if (ready) refresh(); }, [ready, refresh]);
+
+  // Keep the running tab live: auto-refresh every 60s while the page is open.
+  useEffect(() => {
+    if (!ready) return;
+    const id = setInterval(() => refresh(), 60000);
+    return () => clearInterval(id);
+  }, [ready, refresh]);
 
   const allData = PORTFOLIOS.map(p => calcPortfolio(p, prices, basePrices));
   const ranked = [...allData].sort((a, b) => b.totalGain - a.totalGain);
@@ -451,25 +460,17 @@ export default function App() {
         {/* ── BUTTONS ── */}
         <div style={{ textAlign: "center" }}>
           <div style={{ display: "flex", justifyContent: "center", gap: 14, flexWrap: "wrap", marginBottom: 14 }}>
-            <button className="peppa-btn" disabled={loading} onClick={() => refresh(false)} style={{
+            <button className="peppa-btn" disabled={loading} onClick={() => refresh()} style={{
               background: "#e84545", color: "#fff",
               padding: "13px 30px", borderRadius: 50, fontSize: 17,
               boxShadow: "0 5px 0 #a82e2e",
             }}>
               {loading ? "🔄 Loading..." : "🔄 Refresh Prices!"}
             </button>
-            <button className="peppa-btn" disabled={loading} onClick={() => refresh(true)} style={{
-              background: "#fff", color: "#f5a623",
-              border: "4px solid #f5a623",
-              padding: "13px 30px", borderRadius: 50, fontSize: 17,
-              boxShadow: "0 5px 0 #c4841a",
-            }}>
-              🔁 Reset Prices
-            </button>
           </div>
           {lastUpdated && (
             <div className="nunito" style={{ color: "rgba(255,255,255,0.65)", fontSize: 12, fontWeight: 700, marginBottom: 4 }}>
-              Updated: {lastUpdated}
+              Updated: {lastUpdated} • Starting line: open on 6/17/26
             </div>
           )}
           <div className="nunito" style={{ color: "rgba(255,255,255,0.35)", fontSize: 11, fontWeight: 700 }}>
