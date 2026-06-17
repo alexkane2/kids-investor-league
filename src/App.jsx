@@ -91,89 +91,6 @@ function Cloud({ top, left, scale = 1, opacity = 1 }) {
   );
 }
 
-function RaceTrack({ ranked }) {
-  // Horse position maps each racer's return % onto a FIXED scale, so the
-  // distances between horses are true to the real percentage gaps between them.
-  const n = ranked.length;
-
-  // Fixed scale: -SCALE% sits at the start, +SCALE% sits at the finish.
-  // A return of 0% lands in the middle. This keeps small gaps looking small.
-  const SCALE = 10; // covers -10%..+10%; clamps beyond that
-  const START = 8;  // % from left at -SCALE
-  const END = 78;   // % from left at +SCALE
-
-  const posFor = (pct) => {
-    const clamped = Math.max(-SCALE, Math.min(SCALE, pct ?? 0));
-    const t = (clamped + SCALE) / (2 * SCALE); // 0..1
-    return START + t * (END - START);
-  };
-
-  return (
-    <div style={{
-      background: "linear-gradient(180deg, #8bd45f 0%, #6fb83f 100%)",
-      border: "5px solid #fff",
-      borderRadius: 24,
-      padding: "14px 16px",
-      marginBottom: 24,
-      boxShadow: "0 6px 0 rgba(0,0,0,0.12)",
-      position: "relative",
-      overflow: "hidden",
-    }}>
-      {/* Finish line on the right */}
-      <div style={{
-        position: "absolute", top: 10, bottom: 10, right: 14, width: 10,
-        backgroundImage: "repeating-linear-gradient(45deg, #333 0 6px, #fff 6px 12px)",
-        borderRadius: 3, opacity: 0.85, zIndex: 1,
-      }} />
-      <div style={{ position: "absolute", top: 4, right: 8, fontSize: 18, zIndex: 2 }}>🏁</div>
-
-      {ranked.map((p, i) => {
-        const leftPct = posFor(p.gainPct ?? 0);
-        return (
-          <div key={p.id} style={{
-            position: "relative",
-            height: 54,
-            display: "flex",
-            alignItems: "center",
-            borderBottom: i < n - 1 ? "2px dashed rgba(255,255,255,0.5)" : "none",
-          }}>
-            {/* Lane label / medal */}
-            <div style={{ width: 28, textAlign: "center", fontSize: 18, zIndex: 2 }}>{MEDALS[i]}</div>
-
-            {/* The racer: name, jockey, then horse facing the finish */}
-            <div style={{
-              position: "absolute",
-              left: `${leftPct}%`,
-              transition: "left 1.2s cubic-bezier(.34,1.2,.64,1)",
-              display: "flex",
-              alignItems: "center",
-              gap: 4,
-              zIndex: 3,
-            }}>
-              <span className="fredoka" style={{
-                color: "#fff", fontSize: 13,
-                textShadow: "1px 1px 0 rgba(0,0,0,0.4)",
-                whiteSpace: "nowrap",
-              }}>{p.name}</span>
-              <div className="float-avatar" style={{
-                width: 38, height: 38, borderRadius: "50%",
-                border: `3px solid ${p.color}`,
-                overflow: "hidden", background: "#fff",
-                boxShadow: "0 2px 4px rgba(0,0,0,0.25)",
-                animationDelay: `${i * 0.3}s`,
-                flexShrink: 0,
-              }}>
-                <img src={p.avatar} alt={p.name} style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
-              </div>
-              <span style={{ fontSize: 30, display: "inline-block", transform: "scaleX(-1)" }} className="bounce">🐎</span>
-            </div>
-          </div>
-        );
-      })}
-    </div>
-  );
-}
-
 export default function App() {
   const [prices, setPrices] = useState(() => {
     try { return JSON.parse(localStorage.getItem("kil-last") || "{}"); } catch { return {}; }
@@ -271,8 +188,6 @@ export default function App() {
           )}
         </div>
 
-        {hasData && <RaceTrack ranked={ranked} />}
-
         {loading && !hasData && (
           <div style={{ textAlign: "center", padding: "60px 0" }}>
             <div style={{ fontSize: 72 }} className="bounce">🐽</div>
@@ -288,8 +203,8 @@ export default function App() {
         )}
         {hasData && (
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))", gap: 22, marginBottom: 24 }}>
-            {allData.map((p, i) => {
-              const rank = rankOf(p.id);
+            {ranked.map((p, i) => {
+              const rank = i;
               return (
                 <div key={p.id} className="peppa-card" style={{ animationDelay: `${i * 0.14}s`, background: "#fff", border: `5px solid ${p.color}`, borderRadius: 28, padding: "0 0 22px", boxShadow: `5px 8px 0 ${p.color}88`, overflow: "hidden", position: "relative" }}>
                   <div style={{ background: p.color, padding: "12px 18px 14px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
