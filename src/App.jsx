@@ -41,6 +41,44 @@ const PORTFOLIOS = [
       { ticker: "SCHD", invested: 100 },
     ],
   },
+  {
+    id: "steph",
+    name: "Steph",
+    avatar: "🦊",
+    color: "#2d9bf0",
+    bg: "#f0f8ff",
+    border: "#2d9bf0",
+    accent: "#9ad0f5",
+    holdings: [
+      { ticker: "VOO", invested: 270 },
+      { ticker: "SGOV", invested: 30 },
+    ],
+  },
+  {
+    id: "north",
+    name: "North",
+    avatar: "🐻",
+    color: "#19b37a",
+    bg: "#f0fbf6",
+    border: "#19b37a",
+    accent: "#8fe0c2",
+    holdings: [
+      { ticker: "AMZN", invested: 150 },
+      { ticker: "GDX", invested: 150 },
+    ],
+  },
+  {
+    id: "al",
+    name: "Al",
+    avatar: "🦉",
+    color: "#5c6bc0",
+    bg: "#f4f5fc",
+    border: "#5c6bc0",
+    accent: "#aeb6e8",
+    holdings: [
+      { ticker: "SPMO", invested: 300 },
+    ],
+  },
 ];
 
 const MEDALS = ["🥇", "🥈", "🥉"];
@@ -138,11 +176,11 @@ export default function App() {
   useEffect(() => {
     (async () => {
       try {
-        const bp = localStorage.getItem("kil-base");
+        const bp = localStorage.getItem("kil-base-2026-06-17");
         if (bp) setBasePrices(JSON.parse(bp));
-        const lp = localStorage.getItem("kil-last");
+        const lp = localStorage.getItem("kil-last-2026-06-17");
         if (lp) setPrices(JSON.parse(lp));
-        const ts = localStorage.getItem("kil-ts");
+        const ts = localStorage.getItem("kil-ts-2026-06-17");
         if (ts) setLastUpdated(ts);
       } catch {}
       setReady(true);
@@ -155,14 +193,14 @@ export default function App() {
     try {
       const newPrices = await fetchLivePrices();
       setPrices(newPrices);
-      localStorage.setItem("kil-last", JSON.stringify(newPrices));
+      localStorage.setItem("kil-last-2026-06-17", JSON.stringify(newPrices));
       const ts = new Date().toLocaleString("en-US", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" });
       setLastUpdated(ts);
-      localStorage.setItem("kil-ts", ts);
+      localStorage.setItem("kil-ts-2026-06-17", ts);
       const hasBase = Object.keys(basePrices).length > 0;
       if (resetBase || !hasBase) {
         setBasePrices(newPrices);
-        localStorage.setItem("kil-base", JSON.stringify(newPrices));
+        localStorage.setItem("kil-base-2026-06-17", JSON.stringify(newPrices));
       }
     } catch (e) {
       setError("Oops! Couldn't get prices right now.");
@@ -301,7 +339,7 @@ export default function App() {
                         <div className="nunito" style={{ color: "rgba(255,255,255,0.8)", fontSize: 12, fontWeight: 700 }}>Invested ${p.totalInvested.toFixed(0)}</div>
                       </div>
                     </div>
-                    <div className="bounce" style={{ fontSize: 30, animationDelay: `${i * 0.4}s` }}>{MEDALS[rank]}</div>
+                    <div className="bounce fredoka" style={{ fontSize: 30, animationDelay: `${i * 0.4}s`, color: "#fff" }}>{MEDALS[rank] || `#${rank + 1}`}</div>
                   </div>
 
                   {/* Holdings */}
@@ -394,7 +432,7 @@ export default function App() {
             <div style={{ display: "flex", gap: 22, flexWrap: "wrap", flex: 1 }}>
               {ranked.map((p, i) => (
                 <div key={p.id} style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                  <span className="bounce" style={{ fontSize: 24, animationDelay: `${i * 0.3}s` }}>{MEDALS[i]}</span>
+                  <span className="bounce fredoka" style={{ fontSize: 24, animationDelay: `${i * 0.3}s`, color: "#bbb" }}>{MEDALS[i] || `#${i + 1}`}</span>
                   <div>
                     <div className="fredoka" style={{ color: p.color, fontSize: 17 }}>{p.name}</div>
                     {p.currentValue > 0 && (

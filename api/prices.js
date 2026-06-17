@@ -1,7 +1,7 @@
 // Serverless function — runs on Vercel's servers, NOT in the browser.
 // Your Alpaca keys stay private here (set as env vars in the Vercel dashboard).
 
-const TICKERS = ["NVDA", "GEV", "AMZN", "LLY", "HBM", "AVGE", "VOO", "QQQ", "SCHD"];
+const TICKERS = ["NVDA", "GEV", "AMZN", "LLY", "HBM", "AVGE", "VOO", "QQQ", "SCHD", "SGOV", "GDX", "SPMO"];
 
 export default async function handler(req, res) {
   const key = process.env.ALPACA_KEY;
