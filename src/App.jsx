@@ -287,8 +287,14 @@ export default function App() {
                         border: "3px solid rgba(255,255,255,0.5)",
                         display: "flex", alignItems: "center", justifyContent: "center",
                         fontSize: 30,
+                        overflow: "hidden",
                       }} className="float-avatar">
-                        {p.avatar}
+                        <img
+                          src={`/${p.id}.png`}
+                          alt={p.name}
+                          style={{ width: "100%", height: "100%", objectFit: "cover" }}
+                          onError={(e) => { e.currentTarget.replaceWith(document.createTextNode(p.avatar)); }}
+                        />
                       </div>
                       <div>
                         <div className="fredoka" style={{ color: "#fff", fontSize: 22, textShadow: "1px 1px 0 rgba(0,0,0,0.15)" }}>{p.name}</div>
