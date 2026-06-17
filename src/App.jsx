@@ -9,7 +9,13 @@ const PORTFOLIOS = [
     bg: "#fff5f5",
     border: "#e84545",
     accent: "#ff8c8c",
-    holdings: [{ ticker: "HFGM", invested: 300 }],
+    holdings: [
+      { ticker: "NVDA", invested: 60 },
+      { ticker: "GEV", invested: 60 },
+      { ticker: "AMZN", invested: 60 },
+      { ticker: "LLY", invested: 60 },
+      { ticker: "HBM", invested: 60 },
+    ],
   },
   {
     id: "cameron",
@@ -59,24 +65,12 @@ function calcPortfolio(portfolio, prices, basePrices) {
 }
 
 async function fetchLivePrices() {
-  const res = await fetch("https://api.anthropic.com/v1/messages", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      model: "claude-sonnet-4-20250514",
-      max_tokens: 1000,
-      tools: [{ type: "web_search_20250305", name: "web_search" }],
-      system: `You are a financial data API. Search for current ETF prices and respond ONLY with a raw JSON object mapping ticker symbols to their current price as a number. No markdown, no backticks, no explanation. Example: {"VOO": 523.45, "QQQ": 478.23}`,
-      messages: [{ role: "user", content: `Search for current market prices for these ETFs: ${ALL_TICKERS.join(", ")}. Return ONLY JSON like {"TICKER": price}. Nothing else.` }]
-    })
-  });
-  if (!res.ok) throw new Error(`HTTP ${res.status}`);
-  const data = await res.json();
-  const texts = data.content.filter(b => b.type === "text").map(b => b.text);
-  const raw = texts[texts.length - 1] || "{}";
-  const match = raw.match(/\{[\s\S]*\}/);
-  if (!match) throw new Error("No JSON found");
-  return JSON.parse(match[0]);
+  const res = await fetch("/api/prices");
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error || `HTTP ${res.status}`);
+  }
+  return res.json();
 }
 
 function Cloud({ top, left, scale = 1, opacity = 1 }) {
@@ -144,12 +138,12 @@ export default function App() {
   useEffect(() => {
     (async () => {
       try {
-        const bp = await window.storage.get("kil-base");
-        if (bp?.value) setBasePrices(JSON.parse(bp.value));
-        const lp = await window.storage.get("kil-last");
-        if (lp?.value) setPrices(JSON.parse(lp.value));
-        const ts = await window.storage.get("kil-ts");
-        if (ts?.value) setLastUpdated(ts.value);
+        const bp = localStorage.getItem("kil-base");
+        if (bp) setBasePrices(JSON.parse(bp));
+        const lp = localStorage.getItem("kil-last");
+        if (lp) setPrices(JSON.parse(lp));
+        const ts = localStorage.getItem("kil-ts");
+        if (ts) setLastUpdated(ts);
       } catch {}
       setReady(true);
     })();
@@ -161,14 +155,14 @@ export default function App() {
     try {
       const newPrices = await fetchLivePrices();
       setPrices(newPrices);
-      await window.storage.set("kil-last", JSON.stringify(newPrices));
+      localStorage.setItem("kil-last", JSON.stringify(newPrices));
       const ts = new Date().toLocaleString("en-US", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" });
       setLastUpdated(ts);
-      await window.storage.set("kil-ts", ts);
+      localStorage.setItem("kil-ts", ts);
       const hasBase = Object.keys(basePrices).length > 0;
       if (resetBase || !hasBase) {
         setBasePrices(newPrices);
-        await window.storage.set("kil-base", JSON.stringify(newPrices));
+        localStorage.setItem("kil-base", JSON.stringify(newPrices));
       }
     } catch (e) {
       setError("Oops! Couldn't get prices right now.");
