@@ -92,20 +92,20 @@ function Cloud({ top, left, scale = 1, opacity = 1 }) {
 }
 
 function RaceTrack({ ranked }) {
-  // ranked is sorted best-first. Horse position reflects each racer's return %
-  // RELATIVE to the others, so close returns sit neck-and-neck.
+  // Horse position maps each racer's return % onto a FIXED scale, so the
+  // distances between horses are true to the real percentage gaps between them.
   const n = ranked.length;
-  const pcts = ranked.map(p => (p.gainPct ?? 0));
-  const best = Math.max(...pcts);
-  const worst = Math.min(...pcts);
-  const span = best - worst;
 
-  // Map each return into a track position. Leader (best) sits near finish (~78%),
-  // worst sits near start (~10%). If everyone's basically tied, bunch them up front.
+  // Fixed scale: -SCALE% sits at the start, +SCALE% sits at the finish.
+  // A return of 0% lands in the middle. This keeps small gaps looking small.
+  const SCALE = 10; // covers -10%..+10%; clamps beyond that
+  const START = 8;  // % from left at -SCALE
+  const END = 78;   // % from left at +SCALE
+
   const posFor = (pct) => {
-    if (span < 0.0001) return 74; // all tied -> same spot near finish
-    const t = (pct - worst) / span; // 0 (worst) .. 1 (best)
-    return 10 + t * 66; // 10%..76%
+    const clamped = Math.max(-SCALE, Math.min(SCALE, pct ?? 0));
+    const t = (clamped + SCALE) / (2 * SCALE); // 0..1
+    return START + t * (END - START);
   };
 
   return (
