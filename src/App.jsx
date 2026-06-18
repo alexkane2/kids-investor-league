@@ -473,37 +473,6 @@ export default function App() {
           </div>
         )}
 
-        {/* ── LEADERBOARD ── */}
-        {hasData && (
-          <div style={{
-            background: "#fff",
-            border: "5px solid #f5a623",
-            borderRadius: 24,
-            padding: "14px 22px",
-            marginBottom: 22,
-            boxShadow: "5px 5px 0 #d4891c",
-            display: "flex", alignItems: "center", gap: 18, flexWrap: "wrap",
-          }}>
-            <div className="fredoka" style={{ color: "#f5a623", fontSize: 20 }}>🏆 Leaderboard</div>
-            <div style={{ display: "flex", gap: 22, flexWrap: "wrap", flex: 1 }}>
-              {ranked.map((p, i) => (
-                <div key={p.id} style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                  <span className="bounce fredoka" style={{ fontSize: 24, animationDelay: `${i * 0.3}s`, color: "#bbb" }}>{MEDALS[i] || `#${i + 1}`}</span>
-                  <div>
-                    <div className="fredoka" style={{ color: p.color, fontSize: 17 }}>{p.name}</div>
-                    {p.currentValue > 0 && (
-                      <div className="nunito" style={{ fontWeight: 900, fontSize: 13, color: p.totalGain >= 0 ? "#27ae60" : "#e84545" }}>
-                        {p.totalGain >= 0 ? "+" : ""}${p.totalGain.toFixed(2)}
-                      </div>
-                    )}
-                  </div>
-                </div>
-              ))}
-            </div>
-            {loading && <div className="fredoka" style={{ color: "#bbb", fontSize: 13 }}>Updating<span className="blink">...</span></div>}
-          </div>
-        )}
-
         {/* ── BUTTONS ── */}
         <div style={{ textAlign: "center" }}>
           <div style={{ display: "flex", justifyContent: "center", gap: 14, flexWrap: "wrap", marginBottom: 14 }}>
