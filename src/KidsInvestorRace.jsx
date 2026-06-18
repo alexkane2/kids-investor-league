@@ -68,22 +68,6 @@ export default function KidsInvestorRace({ racers = [] }) {
         overflowX: 'auto',
       }}
     >
-      {/* Title Header */}
-      <h2
-        style={{
-          fontFamily: '"Fredoka One", "Comic Sans MS", cursive, sans-serif',
-          color: '#fff',
-          textAlign: 'center',
-          marginTop: 0,
-          marginBottom: '24px',
-          fontSize: '28px',
-          textShadow: '0 3px 0 #4a8c33, 0 4px 6px rgba(0,0,0,0.2)',
-          letterSpacing: '0.5px',
-        }}
-      >
-        🏇 The Grand Portfolio Derby 🏇
-      </h2>
-
       {/* Main Track Frame */}
       <div
         style={{
