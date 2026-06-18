@@ -135,21 +135,22 @@ function Cloud({ top, left, scale = 1, opacity = 1 }) {
   );
 }
 
-// One labeled row inside a card's value pill (e.g. "Total" or "Today"),
-// showing the dollar change and percent. Renders muted dashes when missing.
-function PillStat({ label, gain, pct }) {
+// A clean, Robinhood-style return row: muted label on the left, dollar amount
+// followed by the percent in parentheses on the right. Green for gains, red for
+// losses. Renders a muted dash when the value isn't available.
+function ReturnRow({ label, gain, pct, divider }) {
   const has = gain != null && pct != null;
   const up = has && gain >= 0;
+  const color = !has ? "#b0b0b0" : up ? "#1da856" : "#e84545";
   return (
-    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, background: "rgba(255,255,255,0.22)", borderRadius: 30, padding: "4px 14px" }}>
-      <span className="nunito" style={{ color: "rgba(255,255,255,0.9)", fontSize: 11, fontWeight: 900, letterSpacing: 1, textTransform: "uppercase" }}>{label}</span>
+    <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 10, padding: "7px 2px", borderTop: divider ? "1px solid #f0f0f0" : "none" }}>
+      <span className="nunito" style={{ color: "#8a9099", fontSize: 13, fontWeight: 700 }}>{label}</span>
       {has ? (
-        <span style={{ display: "flex", alignItems: "baseline", gap: 6 }}>
-          <span className="nunito" style={{ color: "#fff", fontSize: 14, fontWeight: 900 }}>{up ? "▲ +" : "▼ "}${Math.abs(gain).toFixed(2)}</span>
-          <span className="nunito" style={{ color: "rgba(255,255,255,0.85)", fontSize: 12, fontWeight: 700 }}>({pct >= 0 ? "+" : ""}{pct.toFixed(2)}%)</span>
+        <span className="nunito" style={{ color, fontSize: 14, fontWeight: 800 }}>
+          {up ? "+" : "−"}${Math.abs(gain).toFixed(2)} <span style={{ fontWeight: 700 }}>({up ? "+" : "−"}{Math.abs(pct).toFixed(2)}%)</span>
         </span>
       ) : (
-        <span className="nunito" style={{ color: "rgba(255,255,255,0.7)", fontSize: 13, fontWeight: 700 }}>—</span>
+        <span className="nunito" style={{ color, fontSize: 14, fontWeight: 700 }}>—</span>
       )}
     </div>
   );
@@ -439,13 +440,13 @@ export default function App() {
                       <div className="fredoka" style={{ color: "#fff", fontSize: 28, marginTop: 2, textShadow: "2px 2px 0 rgba(0,0,0,0.12)" }}>
                         {p.currentValue > 0 ? `$${p.currentValue.toFixed(2)}` : "—"}
                       </div>
-                      {p.currentValue > 0 && (
-                        <div style={{ marginTop: 8, display: "flex", flexDirection: "column", gap: 6 }}>
-                          <PillStat label="Total" gain={p.totalGain} pct={p.totalGainPct} />
-                          <PillStat label="Today" gain={p.todayGain} pct={p.todayGainPct} />
-                        </div>
-                      )}
                     </div>
+                    {p.currentValue > 0 && (
+                      <div style={{ marginTop: 10, padding: "0 4px" }}>
+                        <ReturnRow label="Total return" gain={p.totalGain} pct={p.totalGainPct} />
+                        <ReturnRow label="Today's return" gain={p.todayGain} pct={p.todayGainPct} divider />
+                      </div>
+                    )}
                   </div>
 
                 </div>
