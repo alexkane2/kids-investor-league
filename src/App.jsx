@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
+import KidsInvestorRace from "./KidsInvestorRace";
 
 const PORTFOLIOS = [
   {
@@ -262,6 +263,16 @@ export default function App() {
   // Cards displayed left→right by highest current value
   const cardOrder = [...allData].sort((a, b) => (b.currentValue || 0) - (a.currentValue || 0));
 
+  // Race lineup: all contestants, best-first by total return. `avatar` is the
+  // image URL (the race renders it as an <img>, matching the card avatars).
+  const racers = ranked.map(p => ({
+    id: p.id,
+    name: p.name,
+    avatar: `/${p.id}.png`,
+    color: p.color,
+    gainPct: p.totalGainPct,
+  }));
+
   return (
     <div style={{ minHeight: "100vh", background: "#6ec6e6", position: "relative", overflow: "hidden", fontFamily: "'Nunito', sans-serif" }}>
 
@@ -321,6 +332,13 @@ export default function App() {
             </div>
           )}
         </div>
+
+        {/* ── RACE ── */}
+        {hasData && (
+          <div style={{ marginBottom: 24 }}>
+            <KidsInvestorRace racers={racers} />
+          </div>
+        )}
 
         {/* ── LOADING ── */}
         {loading && !hasData && (
