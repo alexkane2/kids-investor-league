@@ -1,17 +1,19 @@
 // Serverless function — runs on Vercel's servers, NOT in the browser.
 // Your Alpaca keys stay private here (set as env vars in the Vercel dashboard).
 //
-// Returns BOTH:
-//   current — the latest live price for each ticker
-//   base    — each ticker's OPENING price on the competition start date below
+// For each ticker it returns a { price, open } pair, both from Alpaca's
+// snapshots endpoint (one request covers every symbol):
+//   price — the latest live trade price (current price)
+//   open  — TODAY's market open (the open of today's daily bar)
 //
-// Gains are always measured from that fixed opening price, so everyone starts
-// at $300 as of the market open on ANCHOR_DATE and the standings update live.
+// It also returns `base`: each ticker's OPENING price on the league's start
+// date (ANCHOR_DATE). The app measures "Total" gains from that fixed purchase
+// price and "Today" gains from each ticker's today open above.
 
 const TICKERS = ["NVDA", "GEV", "AMZN", "LLY", "HBM", "AVGE", "VOO", "QQQ", "SCHD", "SGOV", "GDX", "SPMO"];
 
-// Fixed starting line: the trading day the league began. Gains are measured
-// from this day's market open and stay anchored here permanently.
+// Fixed starting line: the trading day the league began. "Total" gains are
+// measured from this day's market open and stay anchored here permanently.
 // ANCHOR_END is the day after, so the daily-bar query returns exactly the
 // anchor day's bar (Alpaca treats the range end as exclusive of the next day).
 const ANCHOR_DATE = "2026-06-17";
@@ -33,37 +35,45 @@ export default async function handler(req, res) {
   };
   const symbols = TICKERS.join(",");
 
-  // Latest live trade for each ticker (current price)
-  const latestUrl = `https://data.alpaca.markets/v2/stocks/trades/latest?symbols=${symbols}&feed=iex`;
-  // Daily bar for the anchor date — its open `o` is that day's market open
-  // (the starting line). The narrow date range returns just that day's bar per
-  // ticker, and we read the first (earliest) bar below.
+  // One snapshot call gives us, per ticker, the latest trade (current price)
+  // and today's daily bar (whose open `o` is today's market open).
+  const snapshotUrl = `https://data.alpaca.markets/v2/stocks/snapshots?symbols=${symbols}&feed=iex`;
+  // Daily bar for the anchor date — its open `o` is the fixed purchase price
+  // (the league's starting line). The narrow date range returns just that
+  // day's bar per ticker, and we read the first (earliest) bar below.
   const barsUrl = `https://data.alpaca.markets/v2/stocks/bars?symbols=${symbols}&timeframe=1Day&start=${ANCHOR_DATE}&end=${ANCHOR_END}&feed=iex&adjustment=split`;
 
   try {
-    const [latestRes, barsRes] = await Promise.all([
-      fetch(latestUrl, { headers }),
+    const [snapRes, barsRes] = await Promise.all([
+      fetch(snapshotUrl, { headers }),
       fetch(barsUrl, { headers }),
     ]);
 
-    if (!latestRes.ok) {
-      const detail = await latestRes.text().catch(() => "");
-      res.status(latestRes.status).json({ error: `Alpaca ${latestRes.status}`, detail: detail.slice(0, 200) });
+    if (!snapRes.ok) {
+      const detail = await snapRes.text().catch(() => "");
+      res.status(snapRes.status).json({ error: `Alpaca ${snapRes.status}`, detail: detail.slice(0, 200) });
       return;
     }
 
-    const latestData = await latestRes.json();
-    const current = {};
-    if (latestData?.trades) {
-      for (const [ticker, trade] of Object.entries(latestData.trades)) {
-        if (trade && typeof trade.p === "number" && trade.p > 0) {
-          current[ticker] = trade.p;
-        }
+    // The multi-symbol snapshots endpoint returns a map keyed by ticker
+    // (some API versions nest it under a `snapshots` key — handle both).
+    const snapData = await snapRes.json();
+    const snapshots = snapData?.snapshots || snapData || {};
+    const prices = {};
+    for (const [ticker, snap] of Object.entries(snapshots)) {
+      if (!snap || !TICKERS.includes(ticker)) continue;
+      const price = snap.latestTrade?.p;
+      const open = snap.dailyBar?.o;
+      if (typeof price === "number" && price > 0) {
+        prices[ticker] = {
+          price,
+          open: typeof open === "number" && open > 0 ? open : null,
+        };
       }
     }
 
-    // Opening prices for the anchor date. Non-fatal if this fails — the app
-    // simply shows "—" for gains until the opening data is available.
+    // Fixed purchase prices (anchor-date opens). Non-fatal if this fails — the
+    // app simply shows "—" for gains until the opening data is available.
     const base = {};
     if (barsRes.ok) {
       const barsData = await barsRes.json();
@@ -77,14 +87,14 @@ export default async function handler(req, res) {
       }
     }
 
-    if (Object.keys(current).length === 0) {
+    if (Object.keys(prices).length === 0) {
       res.status(502).json({ error: "No prices returned from Alpaca" });
       return;
     }
 
     // Cache for 30s at the edge to avoid hammering Alpaca on rapid refreshes
     res.setHeader("Cache-Control", "public, s-maxage=30");
-    res.status(200).json({ current, base, anchorDate: ANCHOR_DATE });
+    res.status(200).json({ prices, base, anchorDate: ANCHOR_DATE });
   } catch (err) {
     res.status(500).json({ error: err.message || "Unknown server error" });
   }

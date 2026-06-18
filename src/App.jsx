@@ -87,19 +87,31 @@ const ALL_TICKERS = [...new Set(PORTFOLIOS.flatMap(p => p.holdings.map(h => h.ti
 function calcPortfolio(portfolio, prices, basePrices) {
   let totalInvested = 0;
   let currentValue = 0;
+  let openValue = 0;        // portfolio value at today's market open
+  let todayTracked = true;  // false if any priced holding is missing today's open
   const holdings = portfolio.holdings.map(h => {
     const bp = basePrices[h.ticker];
-    const cp = prices[h.ticker];
+    const quote = prices[h.ticker];
+    const cp = quote?.price;
+    const open = quote?.open;
     if (!bp || !cp) return { ...h, shares: null, currentValue: null, gain: null, gainPct: null, currentPrice: null };
     const shares = h.invested / bp;
     const val = shares * cp;
     totalInvested += h.invested;
     currentValue += val;
+    if (typeof open === "number" && open > 0) {
+      openValue += shares * open;
+    } else {
+      todayTracked = false;
+    }
     return { ...h, shares, currentValue: val, gain: val - h.invested, gainPct: ((val - h.invested) / h.invested) * 100, currentPrice: cp };
   });
   const totalGain = currentValue - totalInvested;
   const totalGainPct = totalInvested > 0 ? (totalGain / totalInvested) * 100 : 0;
-  return { ...portfolio, holdings, totalInvested, currentValue, totalGain, totalGainPct };
+  // "Today" = change since today's open, across the holdings we could price.
+  const todayGain = todayTracked && openValue > 0 ? currentValue - openValue : null;
+  const todayGainPct = todayGain != null ? (todayGain / openValue) * 100 : null;
+  return { ...portfolio, holdings, totalInvested, currentValue, totalGain, totalGainPct, todayGain, todayGainPct };
 }
 
 async function fetchLivePrices() {
@@ -119,6 +131,26 @@ function Cloud({ top, left, scale = 1, opacity = 1 }) {
         <div style={{ position: "absolute", bottom: 20, left: 16, width: 48, height: 48, background: "white", borderRadius: "50%", boxShadow: "2px -2px 0 #e0e0e0" }} />
         <div style={{ position: "absolute", bottom: 18, left: 48, width: 38, height: 38, background: "white", borderRadius: "50%" }} />
       </div>
+    </div>
+  );
+}
+
+// One labeled row inside a card's value pill (e.g. "Total" or "Today"),
+// showing the dollar change and percent. Renders muted dashes when missing.
+function PillStat({ label, gain, pct }) {
+  const has = gain != null && pct != null;
+  const up = has && gain >= 0;
+  return (
+    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, background: "rgba(255,255,255,0.22)", borderRadius: 30, padding: "4px 14px" }}>
+      <span className="nunito" style={{ color: "rgba(255,255,255,0.9)", fontSize: 11, fontWeight: 900, letterSpacing: 1, textTransform: "uppercase" }}>{label}</span>
+      {has ? (
+        <span style={{ display: "flex", alignItems: "baseline", gap: 6 }}>
+          <span className="nunito" style={{ color: "#fff", fontSize: 14, fontWeight: 900 }}>{up ? "▲ +" : "▼ "}${Math.abs(gain).toFixed(2)}</span>
+          <span className="nunito" style={{ color: "rgba(255,255,255,0.85)", fontSize: 12, fontWeight: 700 }}>({pct >= 0 ? "+" : ""}{pct.toFixed(2)}%)</span>
+        </span>
+      ) : (
+        <span className="nunito" style={{ color: "rgba(255,255,255,0.7)", fontSize: 13, fontWeight: 700 }}>—</span>
+      )}
     </div>
   );
 }
@@ -192,7 +224,7 @@ export default function App() {
     setError(null);
     try {
       const data = await fetchLivePrices();
-      const current = data.current || {};
+      const current = data.prices || {};
       const base = data.base || {};
       setPrices(current);
       localStorage.setItem("kil-last-2026-06-17", JSON.stringify(current));
@@ -408,13 +440,9 @@ export default function App() {
                         {p.currentValue > 0 ? `$${p.currentValue.toFixed(2)}` : "—"}
                       </div>
                       {p.currentValue > 0 && (
-                        <div style={{ marginTop: 7, display: "inline-flex", background: "rgba(255,255,255,0.22)", borderRadius: 30, padding: "3px 14px", gap: 8, alignItems: "center" }}>
-                          <span className="nunito" style={{ color: "#fff", fontSize: 14, fontWeight: 900 }}>
-                            {p.totalGain >= 0 ? "▲ +" : "▼ "}${Math.abs(p.totalGain).toFixed(2)}
-                          </span>
-                          <span className="nunito" style={{ color: "rgba(255,255,255,0.85)", fontSize: 12, fontWeight: 700 }}>
-                            ({p.totalGainPct >= 0 ? "+" : ""}{p.totalGainPct.toFixed(2)}%)
-                          </span>
+                        <div style={{ marginTop: 8, display: "flex", flexDirection: "column", gap: 6 }}>
+                          <PillStat label="Total" gain={p.totalGain} pct={p.totalGainPct} />
+                          <PillStat label="Today" gain={p.todayGain} pct={p.todayGainPct} />
                         </div>
                       )}
                     </div>
