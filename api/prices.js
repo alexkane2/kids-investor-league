@@ -10,7 +10,7 @@
 // date (ANCHOR_DATE). The app measures "Total" gains from that fixed purchase
 // price and "Today" gains from each ticker's today open above.
 
-const TICKERS = ["NVDA", "GEV", "AMZN", "LLY", "HBM", "AVGE", "VOO", "QQQ", "SCHD", "SGOV", "GDX", "SPMO"];
+const TICKERS = ["NVDA", "GEV", "AMZN", "LLY", "HBM", "AVGE", "VOO", "QQQ", "SCHD", "SGOV", "GDX", "SPMO", "AVSC"];
 
 // Fixed starting line: the trading day the league began. "Total" gains are
 // measured from this day's market open and stay anchored here permanently.

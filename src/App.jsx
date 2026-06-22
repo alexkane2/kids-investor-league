@@ -65,7 +65,7 @@ const PORTFOLIOS = [
     accent: "#8fe0c2",
     holdings: [
       { ticker: "AMZN", invested: 150 },
-      { ticker: "GDX", invested: 150 },
+      { ticker: "AVSC", invested: 150 },
     ],
   },
   {
