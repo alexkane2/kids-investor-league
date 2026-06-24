@@ -88,20 +88,20 @@ const ALL_TICKERS = [...new Set(PORTFOLIOS.flatMap(p => p.holdings.map(h => h.ti
 function calcPortfolio(portfolio, prices, basePrices) {
   let totalInvested = 0;
   let currentValue = 0;
-  let openValue = 0;        // portfolio value at today's market open
-  let todayTracked = true;  // false if any priced holding is missing today's open
+  let prevCloseValue = 0;   // portfolio value at the previous day's close
+  let todayTracked = true;  // false if any priced holding is missing prev close
   const holdings = portfolio.holdings.map(h => {
     const bp = basePrices[h.ticker];
     const quote = prices[h.ticker];
     const cp = quote?.price;
-    const open = quote?.open;
+    const prevClose = quote?.prevClose;
     if (!bp || !cp) return { ...h, shares: null, currentValue: null, gain: null, gainPct: null, currentPrice: null };
     const shares = h.invested / bp;
     const val = shares * cp;
     totalInvested += h.invested;
     currentValue += val;
-    if (typeof open === "number" && open > 0) {
-      openValue += shares * open;
+    if (typeof prevClose === "number" && prevClose > 0) {
+      prevCloseValue += shares * prevClose;
     } else {
       todayTracked = false;
     }
@@ -109,9 +109,9 @@ function calcPortfolio(portfolio, prices, basePrices) {
   });
   const totalGain = currentValue - totalInvested;
   const totalGainPct = totalInvested > 0 ? (totalGain / totalInvested) * 100 : 0;
-  // "Today" = change since today's open, across the holdings we could price.
-  const todayGain = todayTracked && openValue > 0 ? currentValue - openValue : null;
-  const todayGainPct = todayGain != null ? (todayGain / openValue) * 100 : null;
+  // "Today" = change since the previous day's close, across the holdings we could price.
+  const todayGain = todayTracked && prevCloseValue > 0 ? currentValue - prevCloseValue : null;
+  const todayGainPct = todayGain != null ? (todayGain / prevCloseValue) * 100 : null;
   return { ...portfolio, holdings, totalInvested, currentValue, totalGain, totalGainPct, todayGain, todayGainPct };
 }
 

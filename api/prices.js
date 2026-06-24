@@ -64,10 +64,12 @@ export default async function handler(req, res) {
       if (!snap || !TICKERS.includes(ticker)) continue;
       const price = snap.latestTrade?.p;
       const open = snap.dailyBar?.o;
+      const prevClose = snap.prevDailyBar?.c;
       if (typeof price === "number" && price > 0) {
         prices[ticker] = {
           price,
           open: typeof open === "number" && open > 0 ? open : null,
+          prevClose: typeof prevClose === "number" && prevClose > 0 ? prevClose : null,
         };
       }
     }
