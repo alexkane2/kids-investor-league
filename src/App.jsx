@@ -112,7 +112,13 @@ function calcPortfolio(portfolio, prices, basePrices) {
   // "Today" = change since the previous day's close, across the holdings we could price.
   const todayGain = todayTracked && prevCloseValue > 0 ? currentValue - prevCloseValue : null;
   const todayGainPct = todayGain != null ? (todayGain / prevCloseValue) * 100 : null;
-  return { ...portfolio, holdings, totalInvested, currentValue, totalGain, totalGainPct, todayGain, todayGainPct };
+  // Allocation: each holding's share of the portfolio's value right now. Needs a
+  // second pass because the denominator isn't known until every holding is priced.
+  const allocated = holdings.map(h => ({
+    ...h,
+    allocPct: h.currentValue != null && currentValue > 0 ? (h.currentValue / currentValue) * 100 : null,
+  }));
+  return { ...portfolio, holdings: allocated, totalInvested, currentValue, totalGain, totalGainPct, todayGain, todayGainPct };
 }
 
 async function fetchLivePrices() {
@@ -420,7 +426,12 @@ export default function App() {
                           <div>
                             <div className="fredoka" style={{ color: p.color, fontSize: 14 }}>{h.ticker}</div>
                             {h.shares != null && (
-                              <div className="nunito" style={{ color: "#ccc", fontSize: 10, fontWeight: 700 }}>{h.shares.toFixed(3)} sh</div>
+                              <div className="nunito" style={{ fontSize: 10, fontWeight: 700 }}>
+                                {h.allocPct != null && (
+                                  <span style={{ color: p.color, fontWeight: 800, opacity: 0.85 }}>{h.allocPct.toFixed(1)}%</span>
+                                )}
+                                <span style={{ color: "#ccc" }}>{h.allocPct != null ? " • " : ""}{h.shares.toFixed(3)} sh</span>
+                              </div>
                             )}
                           </div>
                           <div className="nunito" style={{ color: "#555", fontSize: 13, fontWeight: 800 }}>
