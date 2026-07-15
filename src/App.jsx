@@ -15,7 +15,7 @@ const PORTFOLIOS = [
       { ticker: "GEV", invested: 60 },
       { ticker: "AMZN", invested: 60 },
       { ticker: "LLY", invested: 60 },
-      { ticker: "HBM", invested: 60 },
+      { ticker: "MP", invested: 60 },
     ],
   },
   {
