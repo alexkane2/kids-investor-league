@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import KidsInvestorRace from "./KidsInvestorRace";
 
 const PORTFOLIOS = [
@@ -123,11 +123,21 @@ function calcPortfolio(portfolio, prices, basePrices) {
 
 async function fetchLivePrices() {
   const res = await fetch("/api/prices");
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({}));
-    throw new Error(err.error || `HTTP ${res.status}`);
+  // A dev server with no /api handler answers the SPA fallback: HTTP 200 with
+  // an HTML body. Without this check that surfaces as an opaque JSON parse
+  // error, which looks identical to Alpaca being down.
+  const contentType = res.headers.get("content-type") || "";
+  if (!contentType.includes("application/json")) {
+    throw new Error(
+      res.ok
+        ? "The /api/prices endpoint isn't running — it returned a page, not data."
+        : `The price server returned HTTP ${res.status}.`
+    );
   }
-  return res.json();
+  const body = await res.json().catch(() => null);
+  if (!res.ok) throw new Error(body?.detail ? `${body.error} — ${body.detail}` : body?.error || `HTTP ${res.status}`);
+  if (!body) throw new Error("The price server sent a malformed response.");
+  return body;
 }
 
 function Cloud({ top, left, scale = 1, opacity = 1 }) {
@@ -169,7 +179,12 @@ export default function App() {
   const [loading, setLoading] = useState(false);
   const [lastUpdated, setLastUpdated] = useState(null);
   const [error, setError] = useState(null);
+  const [detail, setDetail] = useState(null);
   const [ready, setReady] = useState(false);
+  // Mirrors basePrices so `refresh` can read the latest value without taking it
+  // as a dependency — it's called from effects that would otherwise re-fire
+  // every time a refresh stored new anchor prices.
+  const basePricesRef = useRef({});
 
   useEffect(() => {
     const s = document.createElement("style");
@@ -217,7 +232,11 @@ export default function App() {
     (async () => {
       try {
         const bp = localStorage.getItem("kil-base-2026-06-17");
-        if (bp) setBasePrices(JSON.parse(bp));
+        if (bp) {
+          const parsed = JSON.parse(bp);
+          basePricesRef.current = parsed;
+          setBasePrices(parsed);
+        }
         const lp = localStorage.getItem("kil-last-2026-06-17");
         if (lp) setPrices(JSON.parse(lp));
         const ts = localStorage.getItem("kil-ts-2026-06-17");
@@ -230,6 +249,7 @@ export default function App() {
   const refresh = useCallback(async () => {
     setLoading(true);
     setError(null);
+    setDetail(null);
     try {
       const data = await fetchLivePrices();
       const current = data.prices || {};
@@ -239,13 +259,25 @@ export default function App() {
       const ts = new Date().toLocaleString("en-US", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" });
       setLastUpdated(ts);
       localStorage.setItem("kil-ts-2026-06-17", ts);
-      // Starting line is always today's market open, provided by the server.
+      // Starting line is each ticker's open on the anchor date, from the server.
+      // Keep any previously cached anchor prices if this fetch didn't carry them,
+      // since without them no share counts (and so no values) can be computed.
       if (Object.keys(base).length > 0) {
+        basePricesRef.current = base;
         setBasePrices(base);
         localStorage.setItem("kil-base-2026-06-17", JSON.stringify(base));
       }
+      // Partial-data notes (a feed with no coverage for a thin ETF, a missing
+      // anchor bar) come back as warnings — show them rather than rendering
+      // dashes with no explanation.
+      const notes = [...(data.warnings || [])];
+      if (Object.keys(basePricesRef.current).length === 0) {
+        notes.push("Starting-line prices unavailable, so gains can't be calculated yet.");
+      }
+      setDetail(notes.length ? notes.join(" • ") : null);
     } catch (e) {
       setError("Oops! Couldn't get prices right now.");
+      setDetail(e?.message || null);
     }
     setLoading(false);
   }, []);
@@ -356,11 +388,24 @@ export default function App() {
           </div>
         )}
 
-        {/* ── ERROR ── */}
-        {error && (
+        {/* ── ERROR / PARTIAL-DATA NOTICE ── */}
+        {(error || detail) && (
           <div style={{ textAlign: "center", marginBottom: 20 }}>
-            <div style={{ display: "inline-block", background: "#fff3f3", border: "3px solid #e84545", borderRadius: 20, padding: "10px 24px", boxShadow: "3px 3px 0 #e84545" }}>
-              <span className="fredoka" style={{ color: "#e84545", fontSize: 16 }}>😬 {error}</span>
+            <div style={{
+              display: "inline-block", maxWidth: 620,
+              background: error ? "#fff3f3" : "#fffbf0",
+              border: `3px solid ${error ? "#e84545" : "#f5a623"}`,
+              borderRadius: 20, padding: "10px 24px",
+              boxShadow: `3px 3px 0 ${error ? "#e84545" : "#f5a623"}`,
+            }}>
+              <div className="fredoka" style={{ color: error ? "#e84545" : "#b8791a", fontSize: 16 }}>
+                {error ? `😬 ${error}` : "ℹ️ Some data is missing"}
+              </div>
+              {detail && (
+                <div className="nunito" style={{ color: "#8a7a5a", fontSize: 12, fontWeight: 700, marginTop: 5, wordBreak: "break-word" }}>
+                  {detail}
+                </div>
+              )}
             </div>
           </div>
         )}

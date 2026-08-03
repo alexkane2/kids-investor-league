@@ -38,6 +38,31 @@ A portfolio tracker for three kids' ETF holdings. Built with React + Vite, uses 
 - Refresh button fetches latest prices from Alpaca and recalculates value/return
 - Prices cached in localStorage so values persist between page loads
 
+`npm run dev` serves `api/prices.js` locally through a small Vite plugin in
+`vite.config.js`, reading `ALPACA_KEY` / `ALPACA_SECRET` from `.env.local`. Dev
+and production therefore run the same handler code.
+
+## Alpaca data feeds
+
+`api/prices.js` doesn't hardcode a feed. Each request tries `sip` (the full
+consolidated tape) first and falls back to `iex` if Alpaca replies that the
+account's subscription doesn't cover it, so the same code works on the free
+plan and on a paid one. The feed actually used comes back in the response as
+`feeds: { snapshot, bars }`.
+
+This matters because `iex` only sees the small share of volume that trades on
+IEX, so a thinly traded ETF may have no recent trade there. When a snapshot has
+no `latestTrade`, the handler falls back through the minute bar, the daily bar,
+the quote midpoint, and finally the previous close rather than showing a dash.
+
+Historical data older than 15 minutes is available on SIP even for free
+accounts, so the anchor-date bars normally resolve on the accurate feed
+regardless of plan.
+
+If anything is only partially available the response carries a `warnings`
+array, and the app displays it beneath the header instead of silently rendering
+empty cards.
+
 ## Edit the portfolios
 
 To change holdings, edit the `PORTFOLIOS` array at the top of `src/App.jsx`. Each holding needs:
