@@ -19,6 +19,41 @@ const TICKERS = ["NVDA", "GEV", "AMZN", "LLY", "MP", "AVGE", "VOO", "QQQ", "SCHD
 const ANCHOR_DATE = "2026-06-17";
 const ANCHOR_END = "2026-06-18";
 
+// The free IEX feed carries only a small slice of total volume, so a thinly
+// traded ticker can go many minutes without a trade printing on IEX even while
+// the market moves. Its `latestTrade` goes stale while `latestQuote` keeps
+// updating, which showed up as prices being dollars off on the quiet holdings.
+// When the quote is meaningfully newer than the last trade, use the bid/ask
+// midpoint instead — it tracks the real market far more closely.
+const STALE_TRADE_MS = 2 * 60 * 1000;
+// A blown-out spread (pre/post market, halts, no real liquidity) makes the
+// midpoint meaningless, so fall back to the last trade in that case.
+const MAX_SPREAD_PCT = 0.02;
+
+function pickPrice(snap) {
+  const trade = snap.latestTrade;
+  const quote = snap.latestQuote;
+  const tradePrice = typeof trade?.p === "number" && trade.p > 0 ? trade.p : null;
+
+  const bid = quote?.bp;
+  const ask = quote?.ap;
+  const hasQuote =
+    typeof bid === "number" && bid > 0 &&
+    typeof ask === "number" && ask > 0 &&
+    ask >= bid;
+  if (!hasQuote) return tradePrice;
+
+  const mid = (bid + ask) / 2;
+  if ((ask - bid) / mid > MAX_SPREAD_PCT) return tradePrice;
+  if (tradePrice === null) return mid;
+
+  const tradeAt = Date.parse(trade?.t ?? "");
+  const quoteAt = Date.parse(quote?.t ?? "");
+  if (!Number.isFinite(tradeAt) || !Number.isFinite(quoteAt)) return tradePrice;
+
+  return quoteAt - tradeAt > STALE_TRADE_MS ? mid : tradePrice;
+}
+
 export default async function handler(req, res) {
   const key = process.env.ALPACA_KEY;
   const secret = process.env.ALPACA_SECRET;
@@ -62,7 +97,7 @@ export default async function handler(req, res) {
     const prices = {};
     for (const [ticker, snap] of Object.entries(snapshots)) {
       if (!snap || !TICKERS.includes(ticker)) continue;
-      const price = snap.latestTrade?.p;
+      const price = pickPrice(snap);
       const open = snap.dailyBar?.o;
       const prevClose = snap.prevDailyBar?.c;
       if (typeof price === "number" && price > 0) {
