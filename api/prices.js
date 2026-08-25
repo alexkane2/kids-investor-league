@@ -46,8 +46,10 @@ function nextDay(date) {
 }
 
 // Walks paginated market-data responses, folding each page into one accumulator.
-// The page cap is a safety stop — at 10k rows a page it is never reached in
-// practice, but it keeps a bad next_page_token from spinning forever.
+// Pages are requested at 1000 rows, the size Alpaca's own SDK uses — a larger
+// limit risks a 400, and a rejected bars call would blank out every holding.
+// The page cap is a safety stop against a bad next_page_token spinning forever;
+// at ~3,800 daily bars a year across these tickers it allows several years.
 async function fetchAllPages(url, headers, merge) {
   const acc = {};
   let pageToken = null;
@@ -103,7 +105,7 @@ export default async function handler(req, res) {
   // adjustment=split is deliberate and load-bearing: it back-adjusts splits but
   // NOT dividends. Switching to adjustment=all would fold dividends into the
   // prices themselves, and we would then count them a second time below.
-  const barsUrl = `https://data.alpaca.markets/v2/stocks/bars?symbols=${symbols}&timeframe=1Day&start=${ANCHOR_DATE}&end=${nextDay(asOf)}&feed=iex&adjustment=split&limit=10000`;
+  const barsUrl = `https://data.alpaca.markets/v2/stocks/bars?symbols=${symbols}&timeframe=1Day&start=${ANCHOR_DATE}&end=${nextDay(asOf)}&feed=iex&adjustment=split&limit=1000`;
 
   // Cash dividends declared over the same window.
   const divUrl = `https://data.alpaca.markets/v1/corporate-actions?symbols=${symbols}&types=cash_dividend&start=${ANCHOR_DATE}&end=${asOf}&limit=1000`;
