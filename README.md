@@ -41,6 +41,25 @@ A portfolio tracker for three kids' ETF holdings. Built with React + Vite, uses 
 ## Edit the portfolios
 
 To change holdings, edit the `PORTFOLIOS` array at the top of `src/App.jsx`. Each holding needs:
-- `ticker`: the ETF symbol (uppercase)
-- `shares`: number of shares owned
-- `costBasis`: dollar amount originally invested
+- `ticker`: the symbol (uppercase)
+- `invested`: dollar amount put into that position
+
+Share counts aren't stored — they're derived as `invested / purchase price`, and
+the purchase price comes from the server (see below).
+
+### Selling a position mid-league
+
+Everyone starts with the same $300 stake, so a mid-league switch must not reset
+the cost basis — that would erase the seller's gain or loss and scramble the
+standings. When someone sells and redeploys, set three optional fields on their
+portfolio:
+- `stake`: the original amount they put in, kept as the basis for `%` returns
+- `realizedGain`: profit or loss banked on the sold position (negative for a loss)
+- `realizedNote`: short label for the card, e.g. `"sold SPMO"`
+
+Then list the new holdings with the cash actually redeployed, and register the
+buy date in `LATER_BUYS` in `api/prices.js` so the new positions are priced from
+the open on the day they were bought rather than the league's start date.
+
+Total return stays `current value − redeployed cash + realized gain`, measured
+against the original stake.

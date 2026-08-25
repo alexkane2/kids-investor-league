@@ -76,8 +76,17 @@ const PORTFOLIOS = [
     bg: "#f4f5fc",
     border: "#5c6bc0",
     accent: "#aeb6e8",
+    // Sold SPMO on 8/25/26 for $282.50 — a $17.50 loss on the original $300 —
+    // and split the proceeds evenly across three new positions. `stake` holds
+    // the league basis at the $300 everyone started with, and `realizedGain`
+    // carries the closed SPMO loss forward so the switch doesn't erase it.
+    stake: 300,
+    realizedGain: -17.5,
+    realizedNote: "sold SPMO",
     holdings: [
-      { ticker: "SPMO", invested: 300 },
+      { ticker: "IGV", invested: 94.17 },
+      { ticker: "CRCL", invested: 94.17 },
+      { ticker: "IBIT", invested: 94.16 },
     ],
   },
 ];
@@ -86,7 +95,7 @@ const MEDALS = ["🥇", "🥈", "🥉"];
 const ALL_TICKERS = [...new Set(PORTFOLIOS.flatMap(p => p.holdings.map(h => h.ticker)))];
 
 function calcPortfolio(portfolio, prices, basePrices) {
-  let totalInvested = 0;
+  let deployedCost = 0;     // cost of the holdings we could actually price
   let currentValue = 0;
   let prevCloseValue = 0;   // portfolio value at the previous day's close
   let todayTracked = true;  // false if any priced holding is missing prev close
@@ -98,7 +107,7 @@ function calcPortfolio(portfolio, prices, basePrices) {
     if (!bp || !cp) return { ...h, shares: null, currentValue: null, gain: null, gainPct: null, currentPrice: null };
     const shares = h.invested / bp;
     const val = shares * cp;
-    totalInvested += h.invested;
+    deployedCost += h.invested;
     currentValue += val;
     if (typeof prevClose === "number" && prevClose > 0) {
       prevCloseValue += shares * prevClose;
@@ -107,8 +116,15 @@ function calcPortfolio(portfolio, prices, basePrices) {
     }
     return { ...h, shares, currentValue: val, gain: val - h.invested, gainPct: ((val - h.invested) / h.invested) * 100, currentPrice: cp };
   });
-  const totalGain = currentValue - totalInvested;
-  const totalGainPct = totalInvested > 0 ? (totalGain / totalInvested) * 100 : 0;
+  // Gains already banked on positions that were sold (see `realizedGain` in
+  // PORTFOLIOS). Zero for anyone still holding everything they first bought.
+  const realizedGain = portfolio.realizedGain ?? 0;
+  // The league stake — what this investor originally put in. Everyone started
+  // with the same amount, so returns stay comparable even after a mid-league
+  // switch redeploys less cash than the original stake.
+  const stake = portfolio.stake ?? deployedCost;
+  const totalGain = currentValue - deployedCost + realizedGain;
+  const totalGainPct = stake > 0 ? (totalGain / stake) * 100 : 0;
   // "Today" = change since the previous day's close, across the holdings we could price.
   const todayGain = todayTracked && prevCloseValue > 0 ? currentValue - prevCloseValue : null;
   const todayGainPct = todayGain != null ? (todayGain / prevCloseValue) * 100 : null;
@@ -118,7 +134,7 @@ function calcPortfolio(portfolio, prices, basePrices) {
     ...h,
     allocPct: h.currentValue != null && currentValue > 0 ? (h.currentValue / currentValue) * 100 : null,
   }));
-  return { ...portfolio, holdings: allocated, totalInvested, currentValue, totalGain, totalGainPct, todayGain, todayGainPct };
+  return { ...portfolio, holdings: allocated, totalInvested: stake, deployedCost, realizedGain, currentValue, totalGain, totalGainPct, todayGain, todayGainPct };
 }
 
 async function fetchLivePrices() {
@@ -216,11 +232,11 @@ export default function App() {
   useEffect(() => {
     (async () => {
       try {
-        const bp = localStorage.getItem("kil-base-2026-06-17");
+        const bp = localStorage.getItem("kil-base-2026-06-17-v2");
         if (bp) setBasePrices(JSON.parse(bp));
-        const lp = localStorage.getItem("kil-last-2026-06-17");
+        const lp = localStorage.getItem("kil-last-2026-06-17-v2");
         if (lp) setPrices(JSON.parse(lp));
-        const ts = localStorage.getItem("kil-ts-2026-06-17");
+        const ts = localStorage.getItem("kil-ts-2026-06-17-v2");
         if (ts) setLastUpdated(ts);
       } catch {}
       setReady(true);
@@ -235,14 +251,15 @@ export default function App() {
       const current = data.prices || {};
       const base = data.base || {};
       setPrices(current);
-      localStorage.setItem("kil-last-2026-06-17", JSON.stringify(current));
+      localStorage.setItem("kil-last-2026-06-17-v2", JSON.stringify(current));
       const ts = new Date().toLocaleString("en-US", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" });
       setLastUpdated(ts);
-      localStorage.setItem("kil-ts-2026-06-17", ts);
-      // Starting line is always today's market open, provided by the server.
+      localStorage.setItem("kil-ts-2026-06-17-v2", ts);
+      // Purchase prices come from the server: the anchor-date open for the
+      // original holdings, and the buy-date open for later positions.
       if (Object.keys(base).length > 0) {
         setBasePrices(base);
-        localStorage.setItem("kil-base-2026-06-17", JSON.stringify(base));
+        localStorage.setItem("kil-base-2026-06-17-v2", JSON.stringify(base));
       }
     } catch (e) {
       setError("Oops! Couldn't get prices right now.");
@@ -474,6 +491,14 @@ export default function App() {
                       <div style={{ marginTop: 10, padding: "0 4px" }}>
                         <ReturnRow label="Total return" gain={p.totalGain} pct={p.totalGainPct} />
                         <ReturnRow label="Today's return" gain={p.todayGain} pct={p.todayGainPct} divider />
+                        {p.realizedGain !== 0 && (
+                          <ReturnRow
+                            label={`Realized (${p.realizedNote})`}
+                            gain={p.realizedGain}
+                            pct={(p.realizedGain / p.totalInvested) * 100}
+                            divider
+                          />
+                        )}
                       </div>
                     )}
                   </div>
