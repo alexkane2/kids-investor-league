@@ -76,8 +76,17 @@ const PORTFOLIOS = [
     bg: "#f4f5fc",
     border: "#5c6bc0",
     accent: "#aeb6e8",
+    // Sold SPMO on 8/25/26 for $282.50 — a $17.50 loss on the original $300 —
+    // and split the proceeds evenly across three new positions. `stake` holds
+    // the league basis at the $300 everyone started with, and `realizedGain`
+    // carries the closed SPMO loss forward so the switch doesn't erase it.
+    stake: 300,
+    realizedGain: -17.5,
+    realizedNote: "sold SPMO",
     holdings: [
-      { ticker: "SPMO", invested: 300 },
+      { ticker: "IGV", invested: 94.17 },
+      { ticker: "CRCL", invested: 94.17 },
+      { ticker: "IBIT", invested: 94.16 },
     ],
   },
 ];
@@ -85,30 +94,65 @@ const PORTFOLIOS = [
 const MEDALS = ["🥇", "🥈", "🥉"];
 const ALL_TICKERS = [...new Set(PORTFOLIOS.flatMap(p => p.holdings.map(h => h.ticker)))];
 
-function calcPortfolio(portfolio, prices, basePrices) {
-  let totalInvested = 0;
+function calcPortfolio(portfolio, prices, basePrices, dividends = {}, asOf = null, buyDates = {}) {
+  let deployedCost = 0;     // cost of the holdings we could actually price
   let currentValue = 0;
   let prevCloseValue = 0;   // portfolio value at the previous day's close
   let todayTracked = true;  // false if any priced holding is missing prev close
+  let dividendTotal = 0;    // cash dividends collected, across all holdings
   const holdings = portfolio.holdings.map(h => {
     const bp = basePrices[h.ticker];
     const quote = prices[h.ticker];
     const cp = quote?.price;
     const prevClose = quote?.prevClose;
-    if (!bp || !cp) return { ...h, shares: null, currentValue: null, gain: null, gainPct: null, currentPrice: null };
-    const shares = h.invested / bp;
-    const val = shares * cp;
-    totalInvested += h.invested;
+    if (!bp || !cp) return { ...h, shares: null, currentValue: null, gain: null, gainPct: null, currentPrice: null, dividends: 0 };
+
+    // Start from the shares the original cash bought, then replay every
+    // dividend in pay order. Each one buys more shares at that day's close, and
+    // the NEXT dividend pays on the bigger position — that compounding is the
+    // whole point, so the order matters and the loop can't be collapsed.
+    // The server only sends dividends this position was actually entitled to
+    // (held through the ex-date, and already paid out).
+    let shares = h.invested / bp;
+    let cash = 0;             // dividends we couldn't reinvest (no price yet)
+    let sharesPrev = shares;  // position as of the previous close, so a dividend
+    let cashPrev = 0;         // paid TODAY counts as part of today's gain
+    let received = 0;
+    for (const d of dividends[h.ticker] || []) {
+      const amount = shares * d.rate;
+      received += amount;
+      if (d.reinvestPrice > 0) shares += amount / d.reinvestPrice;
+      else cash += amount;
+      if (!asOf || d.payDate < asOf) { sharesPrev = shares; cashPrev = cash; }
+    }
+
+    // A position opened TODAY has no meaningful previous close — it wasn't held
+    // overnight. Measure its first day from the price actually paid, so the
+    // buyer isn't handed a gain (or loss) from a gap they never sat through.
+    // This resolves itself tomorrow, when a real prior close exists.
+    const boughtToday = asOf && buyDates[h.ticker] >= asOf;
+    const prevRef = boughtToday ? bp : prevClose;
+
+    const val = shares * cp + cash;
+    deployedCost += h.invested;
     currentValue += val;
-    if (typeof prevClose === "number" && prevClose > 0) {
-      prevCloseValue += shares * prevClose;
+    dividendTotal += received;
+    if (typeof prevRef === "number" && prevRef > 0) {
+      prevCloseValue += sharesPrev * prevRef + cashPrev;
     } else {
       todayTracked = false;
     }
-    return { ...h, shares, currentValue: val, gain: val - h.invested, gainPct: ((val - h.invested) / h.invested) * 100, currentPrice: cp };
+    return { ...h, shares, currentValue: val, gain: val - h.invested, gainPct: ((val - h.invested) / h.invested) * 100, currentPrice: cp, dividends: received };
   });
-  const totalGain = currentValue - totalInvested;
-  const totalGainPct = totalInvested > 0 ? (totalGain / totalInvested) * 100 : 0;
+  // Gains already banked on positions that were sold (see `realizedGain` in
+  // PORTFOLIOS). Zero for anyone still holding everything they first bought.
+  const realizedGain = portfolio.realizedGain ?? 0;
+  // The league stake — what this investor originally put in. Everyone started
+  // with the same amount, so returns stay comparable even after a mid-league
+  // switch redeploys less cash than the original stake.
+  const stake = portfolio.stake ?? deployedCost;
+  const totalGain = currentValue - deployedCost + realizedGain;
+  const totalGainPct = stake > 0 ? (totalGain / stake) * 100 : 0;
   // "Today" = change since the previous day's close, across the holdings we could price.
   const todayGain = todayTracked && prevCloseValue > 0 ? currentValue - prevCloseValue : null;
   const todayGainPct = todayGain != null ? (todayGain / prevCloseValue) * 100 : null;
@@ -118,7 +162,7 @@ function calcPortfolio(portfolio, prices, basePrices) {
     ...h,
     allocPct: h.currentValue != null && currentValue > 0 ? (h.currentValue / currentValue) * 100 : null,
   }));
-  return { ...portfolio, holdings: allocated, totalInvested, currentValue, totalGain, totalGainPct, todayGain, todayGainPct };
+  return { ...portfolio, holdings: allocated, totalInvested: stake, deployedCost, realizedGain, dividendTotal, currentValue, totalGain, totalGainPct, todayGain, todayGainPct };
 }
 
 async function fetchLivePrices() {
@@ -166,6 +210,9 @@ function ReturnRow({ label, gain, pct, divider }) {
 export default function App() {
   const [prices, setPrices] = useState({});
   const [basePrices, setBasePrices] = useState({});
+  const [dividends, setDividends] = useState({});
+  const [asOf, setAsOf] = useState(null);
+  const [buyDates, setBuyDates] = useState({});
   const [loading, setLoading] = useState(false);
   const [lastUpdated, setLastUpdated] = useState(null);
   const [error, setError] = useState(null);
@@ -216,12 +263,19 @@ export default function App() {
   useEffect(() => {
     (async () => {
       try {
-        const bp = localStorage.getItem("kil-base-2026-06-17");
+        const bp = localStorage.getItem("kil-base-2026-06-17-v2");
         if (bp) setBasePrices(JSON.parse(bp));
-        const lp = localStorage.getItem("kil-last-2026-06-17");
+        const lp = localStorage.getItem("kil-last-2026-06-17-v2");
         if (lp) setPrices(JSON.parse(lp));
-        const ts = localStorage.getItem("kil-ts-2026-06-17");
+        const ts = localStorage.getItem("kil-ts-2026-06-17-v2");
         if (ts) setLastUpdated(ts);
+        const dv = localStorage.getItem("kil-divs-2026-06-17-v2");
+        if (dv) {
+          const parsed = JSON.parse(dv);
+          setDividends(parsed.dividends || {});
+          setAsOf(parsed.asOf || null);
+          setBuyDates(parsed.buyDates || {});
+        }
       } catch {}
       setReady(true);
     })();
@@ -235,14 +289,26 @@ export default function App() {
       const current = data.prices || {};
       const base = data.base || {};
       setPrices(current);
-      localStorage.setItem("kil-last-2026-06-17", JSON.stringify(current));
+      localStorage.setItem("kil-last-2026-06-17-v2", JSON.stringify(current));
       const ts = new Date().toLocaleString("en-US", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" });
       setLastUpdated(ts);
-      localStorage.setItem("kil-ts-2026-06-17", ts);
-      // Starting line is always today's market open, provided by the server.
+      localStorage.setItem("kil-ts-2026-06-17-v2", ts);
+      // Purchase prices come from the server: the anchor-date open for the
+      // original holdings, and the buy-date open for later positions.
       if (Object.keys(base).length > 0) {
         setBasePrices(base);
-        localStorage.setItem("kil-base-2026-06-17", JSON.stringify(base));
+        localStorage.setItem("kil-base-2026-06-17-v2", JSON.stringify(base));
+      }
+      // Only overwrite the cached dividend history when the server actually
+      // reached the corporate-actions feed. A failed fetch returns an empty
+      // map, and storing that would silently wipe out everyone's payouts.
+      if (data.dividendsOk !== false) {
+        const divs = data.dividends || {};
+        const buys = data.buyDates || {};
+        setDividends(divs);
+        setAsOf(data.asOf || null);
+        setBuyDates(buys);
+        localStorage.setItem("kil-divs-2026-06-17-v2", JSON.stringify({ dividends: divs, asOf: data.asOf || null, buyDates: buys }));
       }
     } catch (e) {
       setError("Oops! Couldn't get prices right now.");
@@ -259,7 +325,7 @@ export default function App() {
     return () => clearInterval(id);
   }, [ready, refresh]);
 
-  const allData = PORTFOLIOS.map(p => calcPortfolio(p, prices, basePrices));
+  const allData = PORTFOLIOS.map(p => calcPortfolio(p, prices, basePrices, dividends, asOf, buyDates));
   const ranked = [...allData].sort((a, b) => b.totalGain - a.totalGain);
   const rankOf = id => ranked.findIndex(r => r.id === id);
   const hasData = Object.keys(prices).length > 0;
@@ -474,6 +540,23 @@ export default function App() {
                       <div style={{ marginTop: 10, padding: "0 4px" }}>
                         <ReturnRow label="Total return" gain={p.totalGain} pct={p.totalGainPct} />
                         <ReturnRow label="Today's return" gain={p.todayGain} pct={p.todayGainPct} divider />
+                        {p.dividendTotal > 0 && (
+                          <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 10, padding: "7px 2px", borderTop: "1px solid #f0f0f0" }}>
+                            <span className="nunito" style={{ color: "#8a9099", fontSize: 13, fontWeight: 700 }}>💵 Dividends</span>
+                            <span className="nunito" style={{ color: "#1da856", fontSize: 14, fontWeight: 800 }}>
+                              +${p.dividendTotal.toFixed(2)}{" "}
+                              <span style={{ fontWeight: 700, color: "#8a9099" }}>(reinvested)</span>
+                            </span>
+                          </div>
+                        )}
+                        {p.realizedGain !== 0 && (
+                          <ReturnRow
+                            label={`Realized (${p.realizedNote})`}
+                            gain={p.realizedGain}
+                            pct={(p.realizedGain / p.totalInvested) * 100}
+                            divider
+                          />
+                        )}
                       </div>
                     )}
                   </div>
