@@ -31,6 +31,39 @@ A portfolio tracker for three kids' ETF holdings. Built with React + Vite, uses 
 
 5. Open http://localhost:5173 in your browser.
 
+## Dividends
+
+Dividends are collected automatically and **reinvested** (DRIP), matching a real
+brokerage account with reinvestment switched on.
+
+`api/prices.js` pulls cash dividends from Alpaca's corporate-actions feed and
+attaches the closing price on each pay date. `calcPortfolio` in `src/App.jsx`
+then replays them in pay order: each dividend buys more shares at that day's
+close, and the next dividend pays on the larger position. That is the
+compounding, so the replay order matters.
+
+Two gates decide whether a dividend counts:
+- **ex-date on or after the buy date** — you only collect if you held through it,
+  so a mid-league buyer doesn't get paid for quarters they weren't invested in
+- **pay date on or before today** — the cash has to have actually landed
+
+Between the ex-date and the pay date a real brokerage shows the price drop
+without the cash yet, and so does this.
+
+Dividends are already inside "Total return" — they arrive as extra shares, which
+lift current value. The 💵 Dividends row on each card is a breakdown of how much
+of that came from payouts, not a number to add on top.
+
+If the corporate-actions feed is unavailable (it needs a data subscription), the
+app still serves prices and keeps the last known dividend history rather than
+wiping it to zero. `dividendsOk: false` in the API response flags that case.
+
+Two things to know about the current model: buy dates live per *ticker* in
+`LATER_BUYS`, so two people holding the same ticker bought on different dates
+would need that moved onto the holding. And bars are fetched with
+`adjustment=split` on purpose — `adjustment=all` would bake dividends into the
+prices and count them twice.
+
 ## How it works
 
 - `src/App.jsx` — the entire app (single file)
