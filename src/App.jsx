@@ -84,17 +84,17 @@ const PORTFOLIOS = [
     bg: "#f4f5fc",
     border: "#5c6bc0",
     accent: "#aeb6e8",
-    // Sold SPMO on 8/25/26 for $282.50 — a $17.50 loss on the original $300 —
-    // and split the proceeds evenly across three new positions. `stake` holds
-    // the league basis at the $300 everyone started with, and `realizedGain`
-    // carries the closed SPMO loss forward so the switch doesn't erase it.
+    // Sold SPMO on 8/25/26 for $282.50 (a $17.50 loss) and split it across
+    // IGV/CRCL/IBIT. Sold those on 9/23/26 at the live price for $304.14
+    // (a $21.64 gain), so $4.14 is banked overall against the original $300,
+    // and went 50/50 into TSLA and SPCX at the live price. `buyPrice` pins
+    // the purchase to that moment instead of the day's open.
     stake: 300,
-    realizedGain: -17.5,
-    realizedNote: "sold SPMO",
+    realizedGain: 4.14,
+    realizedNote: "past trades",
     holdings: [
-      { ticker: "IGV", invested: 94.17 },
-      { ticker: "CRCL", invested: 94.17 },
-      { ticker: "IBIT", invested: 94.16 },
+      { ticker: "TSLA", invested: 152.07, buyPrice: 380.355 },
+      { ticker: "SPCX", invested: 152.07, buyPrice: 152.045 },
     ],
   },
 ];
@@ -109,7 +109,9 @@ function calcPortfolio(portfolio, prices, basePrices, dividends = {}, asOf = nul
   let todayTracked = true;  // false if any priced holding is missing prev close
   let dividendTotal = 0;    // cash dividends collected, across all holdings
   const holdings = portfolio.holdings.map(h => {
-    const bp = basePrices[h.ticker];
+    // A holding bought mid-session at a specific price carries `buyPrice`;
+    // everything else uses the server's open on its buy date.
+    const bp = h.buyPrice ?? basePrices[h.ticker];
     const quote = prices[h.ticker];
     const cp = quote?.price;
     const prevClose = quote?.prevClose;
