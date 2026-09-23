@@ -12,7 +12,7 @@
 //                position was bought, each annotated with the closing price on
 //                its pay date so the app can reinvest it into more shares.
 
-const TICKERS = ["NVDA", "GEV", "AMZN", "LLY", "MP", "AVGE", "VOO", "QQQ", "SCHD", "SGOV", "GDX", "AVSC", "IGV", "CRCL", "IBIT"];
+const TICKERS = ["AMZN", "AVGE", "VOO", "QQQ", "SCHD", "SGOV", "GDX", "AVSC", "IGV", "CRCL", "IBIT", "SPMO", "QQQM", "AVUV", "AVDV", "AVEM"];
 
 // Fixed starting line: the trading day the league began. "Total" gains are
 // measured from this day's market open and stay anchored here permanently.
@@ -29,6 +29,11 @@ const LATER_BUYS = {
   IGV: "2026-08-25",   // Al's switch out of SPMO
   CRCL: "2026-08-25",
   IBIT: "2026-08-25",
+  SPMO: "2026-09-23",  // Hudson's switch out of his five stocks
+  QQQM: "2026-09-23",
+  AVUV: "2026-09-23",
+  AVDV: "2026-09-23",
+  AVEM: "2026-09-23",
 };
 
 const buyDateFor = ticker => LATER_BUYS[ticker] || ANCHOR_DATE;
