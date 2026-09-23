@@ -10,12 +10,20 @@ const PORTFOLIOS = [
     bg: "#fff5f5",
     border: "#e84545",
     accent: "#ff8c8c",
+    // Sold everything (NVDA, GEV, AMZN, LLY, MP, plus the LLY dividend shares)
+    // at the 9/23/26 open for $299.98 — a $0.02 loss on the original $300 —
+    // and put the proceeds into a 40/20/20/10/10 ETF mix bought at that same
+    // open. `stake` keeps the league basis at $300 and `realizedGain` carries
+    // the closed loss forward, same as Al's switch.
+    stake: 300,
+    realizedGain: -0.02,
+    realizedNote: "sold stocks",
     holdings: [
-      { ticker: "NVDA", invested: 60 },
-      { ticker: "GEV", invested: 60 },
-      { ticker: "AMZN", invested: 60 },
-      { ticker: "LLY", invested: 60 },
-      { ticker: "MP", invested: 60 },
+      { ticker: "SPMO", invested: 119.99 },  // 40%
+      { ticker: "QQQM", invested: 60.00 },   // 20%
+      { ticker: "AVUV", invested: 60.00 },   // 20%
+      { ticker: "AVDV", invested: 30.00 },   // 10%
+      { ticker: "AVEM", invested: 29.99 },   // 10%
     ],
   },
   {
